@@ -191,6 +191,7 @@ http://localhost:5000
 Currently no authentication required (add for production deployment)
 
 ### Endpoints
+<img width="1533" height="980" alt="image" src="https://github.com/user-attachments/assets/de00ac38-43e6-4892-876f-c69518e8ac54" />
 
 #### 1. Single Prediction
 ```bash
