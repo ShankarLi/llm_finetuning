@@ -1,0 +1,70 @@
+{
+  "model_filename": "output/production_sentiment_model_20250919_182637.pkl",
+  "timestamp": "20250919_182637",
+  "model_type": "production_optimized",
+  "hyperparameters": {
+    "max_features": 8049,
+    "ngram_range": [
+      1,
+      1
+    ],
+    "min_df": 2,
+    "max_df": 0.7142152434752459,
+    "C": 0.6265662116363809,
+    "solver": "saga",
+    "max_iter": 962,
+    "class_weight": "balanced"
+  },
+  "validation_metrics": {
+    "accuracy": 0.6948453608247422,
+    "f1_score": 0.697401325017216,
+    "cv_score": 0.6852291844639454
+  },
+  "test_metrics": {
+    "accuracy": 0.6940385739333723,
+    "f1_macro": 0.6979061768764304,
+    "f1_weighted": 0.694837742493267,
+    "precision_macro": 0.6995365173525894,
+    "recall_macro": 0.6970037860898767
+  },
+  "dataset_statistics": {
+    "train_size": 21329,
+    "val_size": 5335,
+    "test_size": 3422,
+    "train_sentiment_dist": {
+      "1": 8507,
+      "2": 6690,
+      "0": 6132
+    },
+    "val_sentiment_dist": {
+      "1": 2128,
+      "2": 1673,
+      "0": 1534
+    },
+    "test_sentiment_dist": {
+      "1": 1366,
+      "2": 1074,
+      "0": 982
+    },
+    "avg_text_length": {
+      "train": 41.05916826855455,
+      "val": 40.47797563261481,
+      "test": 40.69783752191701
+    }
+  },
+  "label_encoder_classes": [
+    0,
+    1,
+    2
+  ],
+  "feature_extraction": "TF-IDF",
+  "preprocessing_steps": [
+    "URL removal",
+    "Email removal",
+    "Mention/hashtag removal",
+    "Special character removal",
+    "Tokenization",
+    "Stopword removal",
+    "Lemmatization"
+  ]
+}
