@@ -1,34 +1,24 @@
-FROM python:3.9-slim
+# Production stage
+FROM public.ecr.aws/lambda/python:3.9
 
-WORKDIR /app
+# Copy requirements and install
+COPY requirements.txt ${LAMBDA_TASK_ROOT}
+RUN pip install -r requirements.txt --target ${LAMBDA_TASK_ROOT}
 
-# Install system dependencies
-RUN apt-get update && apt-get install -y \
-    gcc \
-    g++ \
-    && rm -rf /var/lib/apt/lists/*
-
-# Copy requirements and install Python dependencies
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+# Download NLTK data to /tmp (Lambda writable directory)
+RUN python -c " \
+import nltk \
+import os \
+nltk.data.path.append('/tmp/nltk_data') \
+os.makedirs('/tmp/nltk_data', exist_ok=True) \
+nltk.download('stopwords', download_dir='/tmp/nltk_data', quiet=True) \
+nltk.download('wordnet', download_dir='/tmp/nltk_data', quiet=True) \
+nltk.download('punkt', download_dir='/tmp/nltk_data', quiet=True) \
+nltk.download('omw-1.4', download_dir='/tmp/nltk_data', quiet=True) \
+"
 
 # Copy application code
-COPY data_manager.py .
-COPY hyperparameter_tuner.py .
-COPY train_production_model.py .
-COPY production_api.py .
-COPY swagger_config.py .
-COPY templates/ ./templates/
-COPY output/ ./output/
+COPY . ${LAMBDA_TASK_ROOT}
 
-# Download NLTK data
-RUN python -c "import nltk; nltk.download('stopwords'); nltk.download('wordnet'); nltk.download('punkt'); nltk.download('omw-1.4')"
-
-# Create directories
-RUN mkdir -p logs data_cache
-
-# Expose the port
-EXPOSE 5000
-
-# Use Gunicorn for production
-CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "4", "--timeout", "120", "production_api:app"]
+# Set the CMD to your handler
+CMD ["lambda_adapter.lambda_handler"]

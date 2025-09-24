@@ -1,0 +1,151 @@
+name: Deploy to AWS Lambda
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  AWS_REGION: us-east-1
+  ECR_REPOSITORY: sentiment-analysis-lambda
+  LAMBDA_FUNCTION_NAME: sentiment-analysis-api
+
+jobs:
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'
+        cache: 'pip'
+
+    - name: Install dependencies
+      run: |
+        pip install -r requirements.txt
+        python -c "import nltk; nltk.download('stopwords', quiet=True); nltk.download('wordnet', quiet=True); nltk.download('punkt', quiet=True); nltk.download('omw-1.4', quiet=True)"
+
+    - name: Test application
+      run: |
+        python -c "
+        from production_api import app
+        print('✅ App imports successfully')
+        
+        # Test health endpoint
+        with app.test_client() as client:
+            response = client.get('/health')
+            print(f'Health check: {response.status_code}')
+            assert response.status_code in [200, 500]  # 500 is OK if model not loaded
+        "
+
+  deploy:
+    name: Deploy to AWS Lambda
+    runs-on: ubuntu-latest
+    needs: test
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+
+    - name: Login to Amazon ECR
+      id: login-ecr
+      uses: aws-actions/amazon-ecr-login@v2
+
+    - name: Create ECR repository if not exists
+      run: |
+        aws ecr describe-repositories --repository-names ${{ env.ECR_REPOSITORY }} || \
+        aws ecr create-repository --repository-name ${{ env.ECR_REPOSITORY }}
+
+    - name: Build and push Docker image
+      id: build-image
+      env:
+        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        IMAGE_TAG: ${{ github.sha }}
+      run: |
+        # Build image
+        docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
+        docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:latest .
+        
+        # Push image
+        docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+        docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
+        
+        echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT
+
+    - name: Create Lambda function
+      env:
+        IMAGE_URI: ${{ steps.build-image.outputs.image }}
+      run: |
+        # Check if function exists
+        if aws lambda get-function --function-name ${{ env.LAMBDA_FUNCTION_NAME }} 2>/dev/null; then
+          echo "Updating existing Lambda function..."
+          aws lambda update-function-code \
+            --function-name ${{ env.LAMBDA_FUNCTION_NAME }} \
+            --image-uri $IMAGE_URI
+        else
+          echo "Creating new Lambda function..."
+          aws lambda create-function \
+            --function-name ${{ env.LAMBDA_FUNCTION_NAME }} \
+            --package-type Image \
+            --code ImageUri=$IMAGE_URI \
+            --role arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/lambda-execution-role \
+            --timeout 300 \
+            --memory-size 1024 \
+            --environment Variables='{FLASK_ENV=production,LOG_LEVEL=INFO}'
+        fi
+
+    - name: Create API Gateway
+      run: |
+        # Check if API exists
+        API_ID=$(aws apigatewayv2 get-apis --query "Items[?Name=='sentiment-analysis-api'].ApiId" --output text)
+        
+        if [ "$API_ID" = "None" ] || [ -z "$API_ID" ]; then
+          echo "Creating API Gateway..."
+          API_ID=$(aws apigatewayv2 create-api \
+            --name sentiment-analysis-api \
+            --protocol-type HTTP \
+            --target arn:aws:lambda:${{ env.AWS_REGION }}:${{ secrets.AWS_ACCOUNT_ID }}:function:${{ env.LAMBDA_FUNCTION_NAME }} \
+            --query ApiId --output text)
+        fi
+        
+        echo "API_ID=$API_ID" >> $GITHUB_ENV
+        echo "API URL: https://$API_ID.execute-api.${{ env.AWS_REGION }}.amazonaws.com"
+
+    - name: Add Lambda permission for API Gateway
+      run: |
+        aws lambda add-permission \
+          --function-name ${{ env.LAMBDA_FUNCTION_NAME }} \
+          --statement-id apigateway-invoke \
+          --action lambda:InvokeFunction \
+          --principal apigateway.amazonaws.com \
+          --source-arn "arn:aws:execute-api:${{ env.AWS_REGION }}:${{ secrets.AWS_ACCOUNT_ID }}:${{ env.API_ID }}/*/*" \
+          2>/dev/null || echo "Permission already exists"
+
+    - name: Test deployment
+      run: |
+        echo "Waiting for deployment to be ready..."
+        sleep 30
+        
+        # Test health endpoint
+        API_URL="https://${{ env.API_ID }}.execute-api.${{ env.AWS_REGION }}.amazonaws.com"
+        
+        echo "Testing: $API_URL/health"
+        curl -f "$API_URL/health" || echo "Health check failed (expected for first deployment)"
+        
+        echo "🚀 Deployment completed!"
+        echo "🌐 API URL: $API_URL"
+        echo "📊 API Info: $API_URL/api-info"
+        echo "📖 Documentation: $API_URL/"

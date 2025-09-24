@@ -7,9 +7,14 @@ import os
 import pickle
 from datetime import datetime
 import numpy as np
+import nltk
 
 import joblib
 from swagger_config import swagger_config
+
+# Configure NLTK data path for Lambda
+if os.environ.get('AWS_LAMBDA_FUNCTION_NAME'):
+    nltk.data.path.append('/tmp/nltk_data')
 
 # Custom JSON encoder to handle numpy types
 class NumpyEncoder(json.JSONEncoder):
@@ -320,21 +325,3 @@ def not_found(error):
 def internal_error(error):
     """Handle 500 errors"""
     return jsonify({"error": "Internal server error"}), 500
-
-if __name__ == "__main__":
-    print("\n" + "="*60)
-    print("🚀 STARTING PRODUCTION SENTIMENT ANALYSIS API")
-    print("="*60)
-    print("📖 API Documentation: http://localhost:5002/")
-    print("🔍 Health Check: http://localhost:5002/health")
-    print("📊 Model Info: http://localhost:5002/model-info")
-    print("📈 Statistics: http://localhost:5002/stats")
-    print("💡 CORS enabled for Swagger UI")
-    print("="*60)
-    
-    try:
-        app.run(debug=False, host="0.0.0.0", port=5002)
-    except Exception as e:
-        print(f"❌ Error starting server: {e}")
-        import traceback
-        traceback.print_exc()
