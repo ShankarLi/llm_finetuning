@@ -4,37 +4,17 @@ swagger_config = {
         "title": "Production Sentiment Analysis API",
         "description": "Advanced sentiment analysis API with machine learning optimization",
         "version": "2.0.0",
-        "contact": {
-            "email": "admin@sentimentapi.com"
-        }
+        "contact": {"email": "admin@sentimentapi.com"},
     },
     "servers": [
-        {
-            "url": "http://localhost:5002",
-            "description": "Local development server"
-        },
-        {
-            "url": "http://127.0.0.1:5002",
-            "description": "Local loopback server"
-        },
-        {
-            "url": "http://192.168.0.106:5002",
-            "description": "Local network server"
-        }
+        {"url": "http://localhost:5002", "description": "Local development server"},
+        {"url": "http://127.0.0.1:5002", "description": "Local loopback server"},
+        {"url": "http://192.168.0.106:5002", "description": "Local network server"},
     ],
     "tags": [
-        {
-            "name": "Prediction",
-            "description": "Sentiment prediction operations"
-        },
-        {
-            "name": "Monitoring",
-            "description": "System monitoring and statistics"
-        },
-        {
-            "name": "System",
-            "description": "System health and information"
-        }
+        {"name": "Prediction", "description": "Sentiment prediction operations"},
+        {"name": "Monitoring", "description": "System monitoring and statistics"},
+        {"name": "System", "description": "System health and information"},
     ],
     "paths": {
         "/predict": {
@@ -53,12 +33,12 @@ swagger_config = {
                                 "properties": {
                                     "text": {
                                         "type": "string",
-                                        "example": "This product is absolutely amazing!"
+                                        "example": "This product is absolutely amazing!",
                                     }
-                                }
+                                },
                             }
                         }
-                    }
+                    },
                 },
                 "responses": {
                     "200": {
@@ -68,31 +48,28 @@ swagger_config = {
                                 "schema": {
                                     "type": "object",
                                     "properties": {
-                                        "sentiment": {
-                                            "type": "string",
-                                            "example": "1"
-                                        },
+                                        "sentiment": {"type": "string", "example": "1"},
                                         "confidence": {
                                             "type": "number",
                                             "format": "float",
-                                            "example": 0.95
+                                            "example": 0.95,
                                         },
                                         "model_version": {
                                             "type": "string",
-                                            "example": "20250919_182637"
+                                            "example": "20250919_182637",
                                         },
                                         "probabilities": {
                                             "type": "object",
                                             "example": {
                                                 "0": 0.05,
                                                 "1": 0.95,
-                                                "2": 0.02
-                                            }
-                                        }
-                                    }
+                                                "2": 0.02,
+                                            },
+                                        },
+                                    },
                                 }
                             }
-                        }
+                        },
                     },
                     "400": {
                         "description": "Bad request - no text provided",
@@ -103,12 +80,12 @@ swagger_config = {
                                     "properties": {
                                         "error": {
                                             "type": "string",
-                                            "example": "No text provided"
+                                            "example": "No text provided",
                                         }
-                                    }
+                                    },
                                 }
                             }
-                        }
+                        },
                     },
                     "500": {
                         "description": "Internal server error",
@@ -119,14 +96,14 @@ swagger_config = {
                                     "properties": {
                                         "error": {
                                             "type": "string",
-                                            "example": "Model not loaded"
+                                            "example": "Model not loaded",
                                         }
-                                    }
+                                    },
                                 }
                             }
-                        }
-                    }
-                }
+                        },
+                    },
+                },
             }
         },
         "/batch-predict": {
@@ -145,15 +122,17 @@ swagger_config = {
                                 "properties": {
                                     "texts": {
                                         "type": "array",
-                                        "items": {
-                                            "type": "string"
-                                        },
-                                        "example": ["Great product!", "Terrible service", "It's okay"]
+                                        "items": {"type": "string"},
+                                        "example": [
+                                            "Great product!",
+                                            "Terrible service",
+                                            "It's okay",
+                                        ],
                                     }
-                                }
+                                },
                             }
                         }
-                    }
+                    },
                 },
                 "responses": {
                     "200": {
@@ -169,20 +148,17 @@ swagger_config = {
                                                 "type": "object",
                                                 "properties": {
                                                     "sentiment": {"type": "string"},
-                                                    "confidence": {"type": "number"}
-                                                }
-                                            }
+                                                    "confidence": {"type": "number"},
+                                                },
+                                            },
                                         },
-                                        "count": {
-                                            "type": "integer",
-                                            "example": 3
-                                        }
-                                    }
+                                        "count": {"type": "integer", "example": 3},
+                                    },
                                 }
                             }
-                        }
+                        },
                     }
-                }
+                },
             }
         },
         "/model-info": {
@@ -201,31 +177,31 @@ swagger_config = {
                                     "properties": {
                                         "model_metadata": {
                                             "type": "object",
-                                            "description": "Complete model metadata"
+                                            "description": "Complete model metadata",
                                         },
                                         "requests_served": {
                                             "type": "integer",
-                                            "example": 1250
+                                            "example": 1250,
                                         },
                                         "available_classes": {
                                             "type": "array",
                                             "items": {"type": "string"},
-                                            "example": ["0", "1", "2"]
+                                            "example": ["0", "1", "2"],
                                         },
                                         "model_performance": {
                                             "type": "object",
                                             "properties": {
                                                 "test_accuracy": {"type": "number"},
                                                 "test_f1_macro": {"type": "number"},
-                                                "validation_f1": {"type": "number"}
-                                            }
-                                        }
-                                    }
+                                                "validation_f1": {"type": "number"},
+                                            },
+                                        },
+                                    },
                                 }
                             }
-                        }
+                        },
                     }
-                }
+                },
             }
         },
         "/stats": {
@@ -244,16 +220,16 @@ swagger_config = {
                                     "properties": {
                                         "total_predictions": {
                                             "type": "integer",
-                                            "example": 1250
+                                            "example": 1250,
                                         },
                                         "sentiment_distribution": {
                                             "type": "object",
-                                            "example": {"0": 450, "1": 300, "2": 500}
+                                            "example": {"0": 450, "1": 300, "2": 500},
                                         },
                                         "average_confidence": {
                                             "type": "number",
                                             "format": "float",
-                                            "example": 0.87
+                                            "example": 0.87,
                                         },
                                         "recent_predictions": {
                                             "type": "array",
@@ -262,16 +238,16 @@ swagger_config = {
                                                 "properties": {
                                                     "timestamp": {"type": "string"},
                                                     "prediction": {"type": "string"},
-                                                    "confidence": {"type": "number"}
-                                                }
-                                            }
-                                        }
-                                    }
+                                                    "confidence": {"type": "number"},
+                                                },
+                                            },
+                                        },
+                                    },
                                 }
                             }
-                        }
+                        },
                     }
-                }
+                },
             }
         },
         "/health": {
@@ -290,35 +266,35 @@ swagger_config = {
                                     "properties": {
                                         "status": {
                                             "type": "string",
-                                            "example": "healthy"
+                                            "example": "healthy",
                                         },
                                         "model_loaded": {
                                             "type": "boolean",
-                                            "example": True
+                                            "example": True,
                                         },
                                         "model_path": {
                                             "type": "string",
-                                            "example": "output/production_sentiment_model_20250919_182637.pkl"
+                                            "example": "output/production_sentiment_model_20250919_182637.pkl",
                                         },
                                         "requests_served": {
                                             "type": "integer",
-                                            "example": 1250
+                                            "example": 1250,
                                         },
                                         "model_version": {
                                             "type": "string",
-                                            "example": "20250919_182637"
+                                            "example": "20250919_182637",
                                         },
                                         "uptime": {
                                             "type": "string",
-                                            "example": "Available"
-                                        }
-                                    }
+                                            "example": "Available",
+                                        },
+                                    },
                                 }
                             }
-                        }
+                        },
                     }
-                }
+                },
             }
-        }
-    }
+        },
+    },
 }

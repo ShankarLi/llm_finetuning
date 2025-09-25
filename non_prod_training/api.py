@@ -7,14 +7,16 @@ from swagger_config import swagger_config
 app = Flask(__name__)
 
 # Create templates directory if it doesn't exist
-os.makedirs('templates', exist_ok=True)
+os.makedirs("templates", exist_ok=True)
+
 
 # Find the latest model in output directory
 def get_latest_model():
-    model_files = glob.glob('output/sentiment_model_*.pkl')
+    model_files = glob.glob("output/sentiment_model_*.pkl")
     if model_files:
         return max(model_files, key=os.path.getctime)
     return None
+
 
 # Load the model
 model_path = get_latest_model()
@@ -29,25 +31,28 @@ else:
     print("No model found in output directory")
     analyzer = None
 
+
 # Main route - serves Swagger UI
-@app.route('/')
+@app.route("/")
 def swagger_ui():
-    return render_template('swagger.html')
+    return render_template("swagger.html")
+
 
 # Route to serve the OpenAPI specification
-@app.route('/swagger-spec')
+@app.route("/swagger-spec")
 def swagger_spec():
     return jsonify(swagger_config)
 
+
 # Prediction endpoint
-@app.route('/predict', methods=['POST'])
+@app.route("/predict", methods=["POST"])
 def predict_sentiment():
     try:
         data = request.json
-        if not data or 'text' not in data:
+        if not data or "text" not in data:
             return jsonify({"error": "No text provided"}), 400
 
-        text = data['text']
+        text = data["text"]
         if not analyzer:
             return jsonify({"error": "Model not loaded"}), 500
 
@@ -57,14 +62,18 @@ def predict_sentiment():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+
 # Health check endpoint
-@app.route('/health', methods=['GET'])
+@app.route("/health", methods=["GET"])
 def health_check():
-    return jsonify({
-        "status": "healthy",
-        "model_loaded": analyzer is not None,
-        "model_path": model_path if model_path else "No model found"
-    })
+    return jsonify(
+        {
+            "status": "healthy",
+            "model_loaded": analyzer is not None,
+            "model_path": model_path if model_path else "No model found",
+        }
+    )
+
 
 if __name__ == "__main__":
     app.run(debug=True, host="0.0.0.0", port=5000)
