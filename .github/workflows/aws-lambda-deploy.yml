@@ -1,142 +1,153 @@
-name: Deploy to AWS Lambda
+# name: Deploy to AWS Lambda
 
-on:
-  push:
-    branches: [main]
-  workflow_dispatch:
+# on:
+#   push:
+#     branches: [main]
+#   workflow_dispatch:
 
-env:
-  AWS_REGION: us-east-1
-  ECR_REPOSITORY: sentiment-analysis-lambda
-  LAMBDA_FUNCTION_NAME: sentiment-analysis-api
+# env:
+#   AWS_REGION: us-east-1
+#   ECR_REPOSITORY: sentiment-analysis-lambda
+#   LAMBDA_FUNCTION_NAME: sentiment-analysis-api
 
-jobs:
-  test:
-    name: Quick Tests
-    runs-on: ubuntu-latest
+# jobs:
+#   test:
+#     name: Quick Tests
+#     runs-on: ubuntu-latest
     
-    steps:
-    - name: Checkout
-      uses: actions/checkout@v4
+#     steps:
+#     - name: Checkout
+#       uses: actions/checkout@v4
 
-    - name: Set up Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: '3.9'
-        cache: 'pip'
+#     - name: Set up Python
+#       uses: actions/setup-python@v4
+#       with:
+#         python-version: '3.9'
+#         cache: 'pip'
 
-    - name: Install and test
-      run: |
-        pip install -r requirements.txt
-        python -c "
-        try:
-            import production_api
-            print('✅ App imports successfully')
-        except Exception as e:
-            print(f'⚠️ Import error: {e}')
-        "
+#     - name: Install and test
+#       run: |
+#         pip install -r requirements.txt
+#         python -c "
+#         try:
+#             import production_api
+#             print('✅ App imports successfully')
+#         except Exception as e:
+#             print(f'⚠️ Import error: {e}')
+#         "
 
-  deploy:
-    name: Deploy to AWS Lambda
-    runs-on: ubuntu-latest
-    needs: test
-    if: github.ref == 'refs/heads/main'
+#   deploy:
+#     name: Deploy to AWS Lambda
+#     runs-on: ubuntu-latest
+#     needs: test
+#     if: github.ref == 'refs/heads/main'
     
-    steps:
-    - name: Checkout
-      uses: actions/checkout@v4
+#     steps:
+#     - name: Checkout
+#       uses: actions/checkout@v4
 
-    - name: Configure AWS credentials
-      uses: aws-actions/configure-aws-credentials@v4
-      with:
-        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        aws-region: ${{ env.AWS_REGION }}
+#     - name: Configure AWS credentials
+#       uses: aws-actions/configure-aws-credentials@v4
+#       with:
+#         aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+#         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+#         aws-region: ${{ env.AWS_REGION }}
 
-    - name: Login to Amazon ECR
-      id: login-ecr
-      uses: aws-actions/amazon-ecr-login@v2
+#     - name: Login to Amazon ECR
+#       id: login-ecr
+#       uses: aws-actions/amazon-ecr-login@v2
 
-    - name: Create ECR repository if needed
-      run: |
-        aws ecr describe-repositories --repository-names ${{ env.ECR_REPOSITORY }} 2>/dev/null || \
-        aws ecr create-repository --repository-name ${{ env.ECR_REPOSITORY }}
+#     - name: Create ECR repository if needed
+#       run: |
+#         aws ecr describe-repositories --repository-names ${{ env.ECR_REPOSITORY }} 2>/dev/null || \
+#         aws ecr create-repository --repository-name ${{ env.ECR_REPOSITORY }}
 
-    - name: Build and push Docker image
-      id: build-image
-      env:
-        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-        IMAGE_TAG: ${{ github.sha }}
-      run: |
-        docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
-        docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
-        echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT
+#     - name: Build and push Docker image
+#       id: build-image
+#       env:
+#         ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+#         IMAGE_TAG: ${{ github.sha }}
+#       run: |
+#         docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
+#         docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+#         echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT
 
-    - name: Deploy Lambda function
-      env:
-        IMAGE_URI: ${{ steps.build-image.outputs.image }}
-        ROLE_ARN: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/lambda-execution-role
-      run: |
-        # Update or create function
-        if aws lambda get-function --function-name ${{ env.LAMBDA_FUNCTION_NAME }} 2>/dev/null; then
-          echo "Updating existing function..."
-          aws lambda update-function-code \
-            --function-name ${{ env.LAMBDA_FUNCTION_NAME }} \
-            --image-uri $IMAGE_URI
-          aws lambda wait function-updated --function-name ${{ env.LAMBDA_FUNCTION_NAME }}
-        else
-          echo "Creating new function..."
-          aws lambda create-function \
-            --function-name ${{ env.LAMBDA_FUNCTION_NAME }} \
-            --package-type Image \
-            --code ImageUri=$IMAGE_URI \
-            --role $ROLE_ARN \
-            --timeout 300 \
-            --memory-size 1024 \
-            --environment Variables='{FLASK_ENV=production}' \
-            --description "Production Sentiment Analysis API"
-          aws lambda wait function-active --function-name ${{ env.LAMBDA_FUNCTION_NAME }}
-        fi
+#     - name: Deploy Lambda function
+#       env:
+#         IMAGE_URI: ${{ steps.build-image.outputs.image }}
+#         ROLE_ARN: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/lambda-execution-role
+#       run: |
+#         # Update or create function
+#         if aws lambda get-function --function-name ${{ env.LAMBDA_FUNCTION_NAME }} 2>/dev/null; then
+#           echo "Updating existing function..."
+#           aws lambda update-function-code \
+#             --function-name ${{ env.LAMBDA_FUNCTION_NAME }} \
+#             --image-uri $IMAGE_URI
+#           aws lambda wait function-updated --function-name ${{ env.LAMBDA_FUNCTION_NAME }}
+#         else
+#           echo "Creating new function..."
+#           aws lambda create-function \
+#             --function-name ${{ env.LAMBDA_FUNCTION_NAME }} \
+#             --package-type Image \
+#             --code ImageUri=$IMAGE_URI \
+#             --role $ROLE_ARN \
+#             --timeout 300 \
+#             --memory-size 1024 \
+#             --environment Variables='{FLASK_ENV=production}' \
+#             --description "Production Sentiment Analysis API"
+#           aws lambda wait function-active --function-name ${{ env.LAMBDA_FUNCTION_NAME }}
+#         fi
 
-    - name: Setup API Gateway (if needed)
-      run: |
-        # Check if API exists
-        API_ID=$(aws apigatewayv2 get-apis --query "Items[?Name=='sentiment-analysis-api'].ApiId" --output text)
+#     - name: Setup API Gateway (if needed)
+#       run: |
+#         # Check if API exists
+#         API_ID=$(aws apigatewayv2 get-apis --query "Items[?Name=='sentiment-analysis-api'].ApiId" --output text)
         
-        if [ "$API_ID" = "None" ] || [ -z "$API_ID" ]; then
-          echo "Creating API Gateway..."
-          API_ID=$(aws apigatewayv2 create-api \
-            --name sentiment-analysis-api \
-            --protocol-type HTTP \
-            --query ApiId --output text)
+#         if [ "$API_ID" = "None" ] || [ -z "$API_ID" ]; then
+#           echo "Creating API Gateway..."
+#           API_ID=$(aws apigatewayv2 create-api \
+#             --name sentiment-analysis-api \
+#             --protocol-type HTTP \
+#             --query ApiId --output text)
           
-          INTEGRATION_ID=$(aws apigatewayv2 create-integration \
-            --api-id $API_ID \
-            --integration-type AWS_PROXY \
-            --integration-uri arn:aws:lambda:${{ env.AWS_REGION }}:${{ secrets.AWS_ACCOUNT_ID }}:function:${{ env.LAMBDA_FUNCTION_NAME }} \
-            --payload-format-version 2.0 \
-            --query IntegrationId --output text)
+#           INTEGRATION_ID=$(aws apigatewayv2 create-integration \
+#             --api-id $API_ID \
+#             --integration-type AWS_PROXY \
+#             --integration-uri arn:aws:lambda:${{ env.AWS_REGION }}:${{ secrets.AWS_ACCOUNT_ID }}:function:${{ env.LAMBDA_FUNCTION_NAME }} \
+#             --payload-format-version 2.0 \
+#             --query IntegrationId --output text)
           
-          aws apigatewayv2 create-route \
-            --api-id $API_ID \
-            --route-key 'ANY /{proxy+}' \
-            --target integrations/$INTEGRATION_ID
+#           aws apigatewayv2 create-route \
+#             --api-id $API_ID \
+#             --route-key 'ANY /{proxy+}' \
+#             --target integrations/$INTEGRATION_ID
           
-          aws apigatewayv2 create-route \
-            --api-id $API_ID \
-            --route-key 'ANY /' \
-            --target integrations/$INTEGRATION_ID
+#           aws apigatewayv2 create-route \
+#             --api-id $API_ID \
+#             --route-key 'ANY /' \
+#             --target integrations/$INTEGRATION_ID
           
-          aws apigatewayv2 create-deployment --api-id $API_ID
+#           aws apigatewayv2 create-deployment --api-id $API_ID
           
-          # Add Lambda permission
-          aws lambda add-permission \
-            --function-name ${{ env.LAMBDA_FUNCTION_NAME }} \
-            --statement-id "apigateway-invoke" \
-            --action lambda:InvokeFunction \
-            --principal apigateway.amazonaws.com \
-            --source-arn "arn:aws:execute-api:${{ env.AWS_REGION }}:${{ secrets.AWS_ACCOUNT_ID }}:$API_ID/*/*"
-        fi
+#           # Add Lambda permission
+#           aws lambda add-permission \
+#             --function-name ${{ env.LAMBDA_FUNCTION_NAME }} \
+#             --statement-id "apigateway-invoke" \
+#             --action lambda:InvokeFunction \
+#             --principal apigateway.amazonaws.com \
+#             --source-arn "arn:aws:execute-api:${{ env.AWS_REGION }}:${{ secrets.AWS_ACCOUNT_ID }}:$API_ID/*/*"
+#         fi
         
-        echo "🌐 API URL: https://$API_ID.execute-api.${{ env.AWS_REGION }}.amazonaws.com"
-        echo "Test: curl https://$API_ID.execute-api.${{ env.AWS_REGION }}.amazonaws.com/health"
+#         echo "🌐 API URL: https://$API_ID.execute-api.${{ env.AWS_REGION }}.amazonaws.com"
+#         echo "Test: curl https://$API_ID.execute-api.${{ env.AWS_REGION }}.amazonaws.com/health"
+
+#     - name: Enhanced testing
+#       run: |
+#         pip install -r requirements.txt
+#         # Quick smoke tests
+#         python -c "
+#         from production_api import app
+#         with app.test_client() as client:
+#             assert client.get('/health').status_code == 200
+#             print('✅ API health check passed')
+#         "
