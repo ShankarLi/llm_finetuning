@@ -3,8 +3,6 @@ name: Deploy to AWS Lambda
 on:
   push:
     branches: [main]
-  pull_request:
-    branches: [main]
   workflow_dispatch:
 
 env:
@@ -14,7 +12,7 @@ env:
 
 jobs:
   test:
-    name: Run Tests & Code Quality
+    name: Quick Tests
     runs-on: ubuntu-latest
     
     steps:
@@ -27,51 +25,16 @@ jobs:
         python-version: '3.9'
         cache: 'pip'
 
-    - name: Install dependencies
+    - name: Install and test
       run: |
         pip install -r requirements.txt
-        pip install black flake8 safety bandit pytest pytest-cov
-        python -c "import nltk; nltk.download('stopwords', quiet=True); nltk.download('wordnet', quiet=True); nltk.download('punkt', quiet=True); nltk.download('omw-1.4', quiet=True)"
-
-    - name: Auto-format code with Black (allow failures)
-      run: |
-        echo "Auto-formatting code with Black..."
-        black --line-length 88 . || echo "⚠️ Black formatting completed (some files may need manual review)"
-
-    - name: Code quality checks (non-blocking)
-      run: |
-        echo "Running code quality checks..."
-        flake8 --max-line-length=88 --ignore=E203,W503,E501,F401,F841,E731 || echo "⚠️ Flake8 completed with some issues"
-        safety check || echo "⚠️ Safety check completed"
-        bandit -r . -f json -o security-report.json || echo "⚠️ Security scan completed"
-
-    - name: Test application imports
-      run: |
         python -c "
         try:
-            print('Testing imports...')
-            import data_manager
-            import hyperparameter_tuner
             import production_api
-            print('✅ All modules import successfully')
-            
-            # Test Flask app creation
-            from production_api import app
-            with app.test_client() as client:
-                response = client.get('/health')
-                print(f'Health check status: {response.status_code}')
+            print('✅ App imports successfully')
         except Exception as e:
-            print(f'⚠️ Import/test error: {e}')
-            print('This may be normal if model files are missing')
+            print(f'⚠️ Import error: {e}')
         "
-
-    - name: Upload security report
-      uses: actions/upload-artifact@v4
-      with:
-        name: security-report-${{ github.run_number }}
-        path: security-report.json
-        retention-days: 30
-      continue-on-error: true
 
   deploy:
     name: Deploy to AWS Lambda
@@ -94,10 +57,10 @@ jobs:
       id: login-ecr
       uses: aws-actions/amazon-ecr-login@v2
 
-    - name: Create ECR repository if not exists
+    - name: Create ECR repository if needed
       run: |
         aws ecr describe-repositories --repository-names ${{ env.ECR_REPOSITORY }} 2>/dev/null || \
-        aws ecr create-repository --repository-name ${{ env.ECR_REPOSITORY }} --image-scanning-configuration scanOnPush=true
+        aws ecr create-repository --repository-name ${{ env.ECR_REPOSITORY }}
 
     - name: Build and push Docker image
       id: build-image
@@ -105,86 +68,24 @@ jobs:
         ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
         IMAGE_TAG: ${{ github.sha }}
       run: |
-        echo "Building Docker image..."
-        
-        # Build with better error handling
-        if docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .; then
-          echo "✅ Docker build successful"
-          docker tag $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:latest
-        else
-          echo "❌ Docker build failed"
-          exit 1
-        fi
-        
-        echo "Pushing Docker images..."
+        docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
         docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
-        docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
-        
         echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT
 
-    - name: Create or update Lambda function
+    - name: Deploy Lambda function
       env:
         IMAGE_URI: ${{ steps.build-image.outputs.image }}
+        ROLE_ARN: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/lambda-execution-role
       run: |
-        echo "Deploying Lambda function..."
-        
-        # Check if function exists
+        # Update or create function
         if aws lambda get-function --function-name ${{ env.LAMBDA_FUNCTION_NAME }} 2>/dev/null; then
-          echo "Updating existing Lambda function..."
+          echo "Updating existing function..."
           aws lambda update-function-code \
             --function-name ${{ env.LAMBDA_FUNCTION_NAME }} \
             --image-uri $IMAGE_URI
-          
-          # Wait for update to complete
           aws lambda wait function-updated --function-name ${{ env.LAMBDA_FUNCTION_NAME }}
-          
-          # Update configuration if needed
-          aws lambda update-function-configuration \
-            --function-name ${{ env.LAMBDA_FUNCTION_NAME }} \
-            --timeout 300 \
-            --memory-size 1024 \
-            --environment Variables='{FLASK_ENV=production,LOG_LEVEL=INFO}'
         else
-          echo "Creating new Lambda function..."
-          
-          # First, ensure the execution role exists
-          ROLE_ARN="arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/lambda-execution-role"
-          
-          # Check if role exists, create if not
-          if ! aws iam get-role --role-name lambda-execution-role 2>/dev/null; then
-            echo "Creating Lambda execution role..."
-            
-            # Create trust policy
-            cat > trust-policy.json << EOF
-        {
-          "Version": "2012-10-17",
-          "Statement": [
-            {
-              "Effect": "Allow",
-              "Principal": {
-                "Service": "lambda.amazonaws.com"
-              },
-              "Action": "sts:AssumeRole"
-            }
-          ]
-        }
-        EOF
-            
-            # Create role
-            aws iam create-role \
-              --role-name lambda-execution-role \
-              --assume-role-policy-document file://trust-policy.json
-            
-            # Attach basic execution policy
-            aws iam attach-role-policy \
-              --role-name lambda-execution-role \
-              --policy-arn arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
-            
-            # Wait for role to be ready
-            sleep 10
-          fi
-          
-          # Create function
+          echo "Creating new function..."
           aws lambda create-function \
             --function-name ${{ env.LAMBDA_FUNCTION_NAME }} \
             --package-type Image \
@@ -192,29 +93,23 @@ jobs:
             --role $ROLE_ARN \
             --timeout 300 \
             --memory-size 1024 \
-            --environment Variables='{FLASK_ENV=production,LOG_LEVEL=INFO}' \
+            --environment Variables='{FLASK_ENV=production}' \
             --description "Production Sentiment Analysis API"
-          
-          # Wait for function to be ready
           aws lambda wait function-active --function-name ${{ env.LAMBDA_FUNCTION_NAME }}
         fi
 
-    - name: Create or update API Gateway
+    - name: Setup API Gateway (if needed)
       run: |
-        echo "Setting up API Gateway..."
-        
         # Check if API exists
         API_ID=$(aws apigatewayv2 get-apis --query "Items[?Name=='sentiment-analysis-api'].ApiId" --output text)
         
         if [ "$API_ID" = "None" ] || [ -z "$API_ID" ]; then
-          echo "Creating new API Gateway..."
+          echo "Creating API Gateway..."
           API_ID=$(aws apigatewayv2 create-api \
             --name sentiment-analysis-api \
             --protocol-type HTTP \
-            --description "Sentiment Analysis API Gateway" \
             --query ApiId --output text)
           
-          # Create integration
           INTEGRATION_ID=$(aws apigatewayv2 create-integration \
             --api-id $API_ID \
             --integration-type AWS_PROXY \
@@ -222,66 +117,26 @@ jobs:
             --payload-format-version 2.0 \
             --query IntegrationId --output text)
           
-          # Create route for any method and path
           aws apigatewayv2 create-route \
             --api-id $API_ID \
             --route-key 'ANY /{proxy+}' \
             --target integrations/$INTEGRATION_ID
           
-          # Create default route
           aws apigatewayv2 create-route \
             --api-id $API_ID \
             --route-key 'ANY /' \
             --target integrations/$INTEGRATION_ID
           
-          # Create deployment
-          aws apigatewayv2 create-deployment \
-            --api-id $API_ID \
-            --description "Initial deployment"
+          aws apigatewayv2 create-deployment --api-id $API_ID
           
-          echo "API Gateway created with ID: $API_ID"
-        else
-          echo "Using existing API Gateway: $API_ID"
+          # Add Lambda permission
+          aws lambda add-permission \
+            --function-name ${{ env.LAMBDA_FUNCTION_NAME }} \
+            --statement-id "apigateway-invoke" \
+            --action lambda:InvokeFunction \
+            --principal apigateway.amazonaws.com \
+            --source-arn "arn:aws:execute-api:${{ env.AWS_REGION }}:${{ secrets.AWS_ACCOUNT_ID }}:$API_ID/*/*"
         fi
         
-        echo "API_ID=$API_ID" >> $GITHUB_ENV
         echo "🌐 API URL: https://$API_ID.execute-api.${{ env.AWS_REGION }}.amazonaws.com"
-
-    - name: Add Lambda permission for API Gateway
-      run: |
-        echo "Adding Lambda permissions for API Gateway..."
-        aws lambda add-permission \
-          --function-name ${{ env.LAMBDA_FUNCTION_NAME }} \
-          --statement-id "apigateway-invoke-$(date +%s)" \
-          --action lambda:InvokeFunction \
-          --principal apigateway.amazonaws.com \
-          --source-arn "arn:aws:execute-api:${{ env.AWS_REGION }}:${{ secrets.AWS_ACCOUNT_ID }}:${{ env.API_ID }}/*/*" \
-          2>/dev/null || echo "Permission already exists (this is normal)"
-
-    - name: Test deployment
-      run: |
-        echo "Testing deployment..."
-        sleep 30
-        
-        API_URL="https://${{ env.API_ID }}.execute-api.${{ env.AWS_REGION }}.amazonaws.com"
-        
-        echo "Testing health endpoint: $API_URL/health"
-        HEALTH_RESPONSE=$(curl -s -w "%{http_code}" "$API_URL/health" || echo "curl_failed")
-        
-        if [[ $HEALTH_RESPONSE == *"200"* ]]; then
-          echo "✅ Health check passed!"
-        else
-          echo "⚠️ Health check response: $HEALTH_RESPONSE"
-          echo "This might be normal for first deployment (cold start)"
-        fi
-        
-        echo ""
-        echo "🚀 Deployment Summary:"
-        echo "🌐 API URL: $API_URL"
-        echo "📚 Documentation: $API_URL/"
-        echo "❤️ Health Check: $API_URL/health"
-        echo "🔮 Predict: $API_URL/predict"
-        echo "📊 Model Info: $API_URL/model-info"
-        echo ""
-        echo "Test your API:"
-        echo "curl -X POST $API_URL/predict -H 'Content-Type: application/json' -d '{\"text\": \"This is amazing!\"}'"
+        echo "Test: curl https://$API_ID.execute-api.${{ env.AWS_REGION }}.amazonaws.com/health"

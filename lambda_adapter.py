@@ -6,48 +6,34 @@ from production_api import app
 
 def lambda_handler(event, context):
     """AWS Lambda handler for Flask app"""
-
+    
     # Handle API Gateway event
-    if "httpMethod" in event:
+    if "requestContext" in event:
         # Extract request data
-        method = event["httpMethod"]
+        method = event.get("httpMethod", "GET")
         path = event.get("path", "/")
         headers = event.get("headers", {})
         body = event.get("body", "")
+        query_params = event.get("queryStringParameters") or {}
 
         # Handle base64 encoded body
-        if event.get("isBase64Encoded", False):
+        if event.get("isBase64Encoded", False) and body:
             body = base64.b64decode(body).decode("utf-8")
 
-        # Create WSGI environ
-        environ = {
-            "REQUEST_METHOD": method,
-            "PATH_INFO": path,
-            "QUERY_STRING": event.get("queryStringParameters", ""),
-            "CONTENT_TYPE": headers.get("Content-Type", ""),
-            "CONTENT_LENGTH": str(len(body)),
-            "wsgi.input": body,
-            "wsgi.url_scheme": "https",
-            "HTTP_HOST": headers.get("Host", "localhost"),
-        }
-
-        # Add all headers
-        for key, value in headers.items():
-            key = key.upper().replace("-", "_")
-            if key not in ("CONTENT_TYPE", "CONTENT_LENGTH"):
-                environ[f"HTTP_{key}"] = value
-
-        # Mock start_response
-        response_data = {}
-
-        def start_response(status, response_headers):
-            response_data["status"] = int(status.split()[0])
-            response_data["headers"] = dict(response_headers)
-
-        # Call Flask app
-        with app.request_context(environ):
+        # Create Flask test client and make request
+        with app.test_client() as client:
             try:
-                response = app.full_dispatch_request()
+                # Convert query params to string
+                query_string = "&".join([f"{k}={v}" for k, v in query_params.items()])
+                
+                response = client.open(
+                    path=path,
+                    method=method,
+                    headers=headers,
+                    data=body,
+                    query_string=query_string,
+                    content_type=headers.get("Content-Type", "application/json")
+                )
 
                 return {
                     "statusCode": response.status_code,
@@ -69,5 +55,8 @@ def lambda_handler(event, context):
     # Handle direct Lambda invocation
     return {
         "statusCode": 200,
-        "body": json.dumps({"message": "Sentiment Analysis API is running"}),
+        "body": json.dumps({
+            "message": "Sentiment Analysis API is running",
+            "version": "2.0.0"
+        }),
     }

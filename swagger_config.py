@@ -2,14 +2,25 @@ swagger_config = {
     "openapi": "3.0.0",
     "info": {
         "title": "Production Sentiment Analysis API",
-        "description": "Advanced sentiment analysis API with machine learning optimization",
+        "description": (
+            "Advanced sentiment analysis API with machine learning optimization"
+        ),
         "version": "2.0.0",
         "contact": {"email": "admin@sentimentapi.com"},
     },
     "servers": [
-        {"url": "http://localhost:5002", "description": "Local development server"},
-        {"url": "http://127.0.0.1:5002", "description": "Local loopback server"},
-        {"url": "http://192.168.0.106:5002", "description": "Local network server"},
+        {
+            "url": "http://localhost:5002", 
+            "description": "Local development server"
+        },
+        {
+            "url": "http://127.0.0.1:5002", 
+            "description": "Local loopback server"
+        },
+        {
+            "url": "http://192.168.0.106:5002", 
+            "description": "Local network server"
+        },
     ],
     "tags": [
         {"name": "Prediction", "description": "Sentiment prediction operations"},
@@ -21,7 +32,9 @@ swagger_config = {
             "post": {
                 "tags": ["Prediction"],
                 "summary": "Predict sentiment from text",
-                "description": "Analyzes text and returns sentiment prediction with confidence score",
+                "description": (
+                    "Analyzes text and returns sentiment prediction with confidence"
+                ),
                 "operationId": "predictSentiment",
                 "requestBody": {
                     "required": True,
@@ -165,7 +178,9 @@ swagger_config = {
             "get": {
                 "tags": ["Monitoring"],
                 "summary": "Get model information",
-                "description": "Returns comprehensive model metadata and performance metrics",
+                "description": (
+                    "Returns comprehensive model metadata and performance metrics"
+                ),
                 "operationId": "modelInfo",
                 "responses": {
                     "200": {
@@ -274,7 +289,10 @@ swagger_config = {
                                         },
                                         "model_path": {
                                             "type": "string",
-                                            "example": "output/production_sentiment_model_20250919_182637.pkl",
+                                            "example": (
+                                                "output/production_sentiment_model_"
+                                                "20250919_182637.pkl"
+                                            ),
                                         },
                                         "requests_served": {
                                             "type": "integer",

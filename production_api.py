@@ -49,7 +49,8 @@ class ProductionSentimentAnalyzer:
         logging.basicConfig(level=logging.INFO)
         self.logger = logging.getLogger(__name__)
 
-        self.logger.info(f"Model initialized - Version: {self.metadata['timestamp']}")
+        model_version = self.metadata['timestamp']
+        self.logger.info(f"Model initialized - Version: {model_version}")
 
     def predict(self, text):
         """Production-grade prediction with comprehensive error handling"""
@@ -116,6 +117,9 @@ class ProductionSentimentAnalyzer:
 
     def get_model_info(self):
         """Get comprehensive model information"""
+        test_metrics = self.metadata.get("test_metrics", {})
+        validation_metrics = self.metadata.get("validation_metrics", {})
+        
         return {
             "model_metadata": self.metadata,
             "requests_served": self.requests_count,
@@ -126,15 +130,9 @@ class ProductionSentimentAnalyzer:
                 else None
             ),
             "model_performance": {
-                "test_accuracy": self.metadata.get("test_metrics", {}).get(
-                    "accuracy", "N/A"
-                ),
-                "test_f1_macro": self.metadata.get("test_metrics", {}).get(
-                    "f1_macro", "N/A"
-                ),
-                "validation_f1": self.metadata.get("validation_metrics", {}).get(
-                    "f1_score", "N/A"
-                ),
+                "test_accuracy": test_metrics.get("accuracy", "N/A"),
+                "test_f1_macro": test_metrics.get("f1_macro", "N/A"),
+                "validation_f1": validation_metrics.get("f1_score", "N/A"),
             },
         }
 
@@ -154,7 +152,7 @@ class ProductionSentimentAnalyzer:
             "total_predictions": len(self.prediction_history),
             "sentiment_distribution": dict(sentiment_counts),
             "average_confidence": sum(confidences) / len(confidences),
-            "recent_predictions": self.prediction_history[-10:],  # Last 10 predictions
+            "recent_predictions": self.prediction_history[-10:],
         }
 
 
@@ -189,9 +187,11 @@ def get_latest_production_model():
         return None, None
 
     latest_model = max(model_files, key=os.path.getctime)
-    # Extract timestamp correctly: production_sentiment_model_20250919_182637.pkl -> 20250919_182637
+    # Extract timestamp correctly
     filename = os.path.basename(latest_model)
-    timestamp = filename.replace("production_sentiment_model_", "").replace(".pkl", "")
+    timestamp = filename.replace("production_sentiment_model_", "").replace(
+        ".pkl", ""
+    )
     metadata_file = f"output/model_metadata_{timestamp}.json"
 
     if os.path.exists(metadata_file):
@@ -205,12 +205,13 @@ if model_path and metadata_path:
     try:
         analyzer = ProductionSentimentAnalyzer(model_path, metadata_path)
         print(f"✅ Production model loaded: {model_path}")
-        print(
-            f"📊 Model accuracy: {analyzer.metadata.get('test_metrics', {}).get('accuracy', 'N/A'):.4f}"
-        )
-        print(
-            f"🎯 Model F1-score: {analyzer.metadata.get('test_metrics', {}).get('f1_macro', 'N/A'):.4f}"
-        )
+        test_metrics = analyzer.metadata.get('test_metrics', {})
+        accuracy = test_metrics.get('accuracy', 'N/A')
+        f1_macro = test_metrics.get('f1_macro', 'N/A')
+        if accuracy != 'N/A':
+            print(f"📊 Model accuracy: {accuracy:.4f}")
+        if f1_macro != 'N/A':
+            print(f"🎯 Model F1-score: {f1_macro:.4f}")
     except Exception as e:
         print(f"❌ Error loading production model: {e}")
         analyzer = None
@@ -247,11 +248,13 @@ def api_info():
         {
             "name": "Production Sentiment Analysis API",
             "version": "2.0.0",
-            "description": "Advanced sentiment analysis API with machine learning optimization",
+            "description": (
+                "Advanced sentiment analysis API with machine learning optimization"
+            ),
             "documentation": "Visit / for interactive API documentation",
             "endpoints": {
                 "predict": "/predict (POST) - Single text sentiment prediction",
-                "batch_predict": "/batch-predict (POST) - Batch sentiment prediction",
+                "batch_predict": "/batch-predict (POST) - Batch prediction",
                 "model_info": "/model-info (GET) - Model information and metrics",
                 "stats": "/stats (GET) - Prediction statistics",
                 "health": "/health (GET) - Health check",
