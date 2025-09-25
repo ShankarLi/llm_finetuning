@@ -130,7 +130,6 @@ class ProductionModelTrainer:
 
         # Predictions
         y_pred = model.predict(X_test)
-        y_pred_proba = model.predict_proba(X_test)
 
         # Metrics
         metrics = {
@@ -155,7 +154,7 @@ class ProductionModelTrainer:
         # Save visualizations
         self.save_evaluation_plots(cm, label_encoder.classes_, metrics)
 
-        # Save detailed results - FIXED: Convert all numpy types
+        # Save detailed results
         test_results = {
             "metrics": metrics,
             "classification_report": report_converted,

@@ -1,4 +1,3 @@
-import json
 import logging
 import os
 from datetime import datetime
@@ -6,10 +5,7 @@ from datetime import datetime
 import joblib
 import mlflow
 import mlflow.sklearn
-import numpy as np
 import optuna
-import pandas as pd
-from sklearn.ensemble import RandomForestClassifier
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score, f1_score
@@ -122,9 +118,10 @@ class ProductionHyperparameterTuner:
 
         # Select objective function
         if model_type == "logistic_regression":
-            objective_func = lambda trial: self.objective_logistic_regression(
-                trial, X_train, y_train
-            )
+
+            def objective_func(trial):
+                return self.objective_logistic_regression(trial, X_train, y_train)
+
         else:
             raise ValueError(f"Unsupported model type: {model_type}")
 
@@ -142,7 +139,8 @@ class ProductionHyperparameterTuner:
 
         # Save study results
         os.makedirs("output", exist_ok=True)
-        study_path = f"output/optuna_study_{model_type}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pkl"
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        study_path = f"output/optuna_study_{model_type}_{timestamp}.pkl"
         joblib.dump(study, study_path)
 
         return best_params_converted, study.best_trial.value
@@ -204,7 +202,7 @@ class ProductionHyperparameterTuner:
         self.logger.info(f"Validation accuracy: {val_accuracy:.4f}")
         self.logger.info(f"Validation F1: {val_f1:.4f}")
 
-        # FIXED: Log final model to MLflow with proper input example
+        # Log final model to MLflow with proper input example
         try:
             with mlflow.start_run():
                 log_params = {}
@@ -220,7 +218,7 @@ class ProductionHyperparameterTuner:
                 mlflow.log_metric("val_accuracy", float(val_accuracy))
                 mlflow.log_metric("val_f1", float(val_f1))
 
-                # FIXED: Convert pandas Series to list for input_example
+                # Convert pandas Series to list for input_example
                 if hasattr(X_train, "iloc"):
                     input_example = X_train.iloc[:3].tolist()
                 else:

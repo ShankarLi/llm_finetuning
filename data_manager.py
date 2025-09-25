@@ -5,7 +5,6 @@ import pickle
 import re
 
 import nltk
-import numpy as np
 import pandas as pd
 from datasets import load_dataset
 from nltk.corpus import stopwords
@@ -80,13 +79,18 @@ class DataManager:
             )
 
             # Cache the processed dataset
-            dataset_dict = {"train": train_df, "validation": val_df, "test": test_df}
+            dataset_dict = {
+                "train": train_df,
+                "validation": val_df,
+                "test": test_df,
+            }
 
             with open(cache_file, "wb") as f:
                 pickle.dump(dataset_dict, f)
 
             self.logger.info(
-                f"Dataset loaded and cached. Train: {len(train_df)}, Val: {len(val_df)}, Test: {len(test_df)}"
+                f"Dataset loaded and cached. Train: {len(train_df)}, "
+                f"Val: {len(val_df)}, Test: {len(test_df)}"
             )
             return dataset_dict
 
@@ -156,11 +160,11 @@ class DataManager:
             text = str(text).lower()
 
             # Remove URLs
-            text = re.sub(
-                r"http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\\(\\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+",
-                "",
-                text,
+            url_pattern = (
+                r"http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|"
+                r"[!*\\(\\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+"
             )
+            text = re.sub(url_pattern, "", text)
 
             # Remove email addresses
             text = re.sub(r"\S+@\S+", "", text)
