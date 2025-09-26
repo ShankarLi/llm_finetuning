@@ -17,14 +17,17 @@ except ImportError as e:
 
 
 def lambda_handler(event, context):
-    """AWS Lambda handler for Flask app"""
+    """AWS Lambda handler for Flask app with enhanced routing"""
     
     print(f"Event: {json.dumps(event, default=str)}")
     
     if not app:
         return {
             "statusCode": 500,
-            "headers": {"Content-Type": "application/json"},
+            "headers": {
+                "Content-Type": "application/json",
+                "Access-Control-Allow-Origin": "*",
+            },
             "body": json.dumps({"error": "Flask app failed to initialize"})
         }
     
@@ -48,6 +51,18 @@ def lambda_handler(event, context):
                     print(f"Base64 decode error: {e}")
                     body = ""
 
+            # Normalize path - remove stage if present
+            if path.startswith("/Prod/") or path.startswith("/prod/"):
+                path = path[5:]  # Remove /Prod or /prod
+            elif path.startswith("/$default/"):
+                path = path[9:]  # Remove /$default
+            
+            # Ensure path starts with /
+            if not path.startswith("/"):
+                path = "/" + path
+
+            print(f"Normalized path: {path}")
+
             # Create Flask test request
             with app.test_client() as client:
                 # Build query string
@@ -69,7 +84,7 @@ def lambda_handler(event, context):
                 response_body = response.get_data(as_text=True)
                 
                 print(f"Flask response status: {response.status_code}")
-                print(f"Flask response body: {response_body[:200]}...")
+                print(f"Flask response body preview: {response_body[:100]}...")
 
                 return {
                     "statusCode": response.status_code,
@@ -89,11 +104,16 @@ def lambda_handler(event, context):
             
             return {
                 "statusCode": 500,
-                "headers": {"Content-Type": "application/json"},
+                "headers": {
+                    "Content-Type": "application/json",
+                    "Access-Control-Allow-Origin": "*",
+                },
                 "body": json.dumps({
                     "error": "Internal server error",
                     "message": str(e),
-                    "type": type(e).__name__
+                    "type": type(e).__name__,
+                    "path": event.get("path", "unknown"),
+                    "method": event.get("httpMethod", "unknown")
                 }),
             }
 
@@ -105,6 +125,10 @@ def lambda_handler(event, context):
                 health_response = client.get('/health')
                 return {
                     "statusCode": 200,
+                    "headers": {
+                        "Content-Type": "application/json",
+                        "Access-Control-Allow-Origin": "*",
+                    },
                     "body": json.dumps({
                         "message": "Sentiment Analysis API is running",
                         "version": "2.0.0",
@@ -114,6 +138,10 @@ def lambda_handler(event, context):
         except Exception as e:
             return {
                 "statusCode": 500,
+                "headers": {
+                    "Content-Type": "application/json",
+                    "Access-Control-Allow-Origin": "*",
+                },
                 "body": json.dumps({
                     "error": "Direct invocation failed",
                     "message": str(e)
