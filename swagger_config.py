@@ -1,5 +1,5 @@
 swagger_config = {
-    "openapi": "3.0.3",  # Added this required field
+    "openapi": "3.0.3",
     "info": {
         "title": "Production Sentiment Analysis API",
         "description": (
@@ -22,7 +22,7 @@ swagger_config = {
             "description": "Local loopback server"
         }
     ],
-    "components": {  # Added components section for better organization
+    "components": {
         "schemas": {
             "PredictionRequest": {
                 "type": "object",
@@ -90,7 +90,7 @@ swagger_config = {
                     },
                     "model_loaded": {
                         "type": "boolean",
-                        "example": True
+                        "example": true  # Changed from True to true
                     },
                     "model_path": {
                         "type": "string",
@@ -134,7 +134,7 @@ swagger_config = {
                 "description": "Analyzes text and returns sentiment prediction with confidence scores",
                 "operationId": "predictSentiment",
                 "requestBody": {
-                    "required": True,
+                    "required": true,  # Changed from True to true
                     "content": {
                         "application/json": {
                             "schema": {
@@ -184,7 +184,7 @@ swagger_config = {
                 "description": "Analyzes multiple texts in a single request for efficient processing",
                 "operationId": "batchPredict",
                 "requestBody": {
-                    "required": True,
+                    "required": true,  # Changed from True to true
                     "content": {
                         "application/json": {
                             "schema": {
