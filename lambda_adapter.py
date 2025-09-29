@@ -86,10 +86,19 @@ def lambda_handler(event, context):
                 print(f"Flask response status: {response.status_code}")
                 print(f"Flask response body preview: {response_body[:100]}...")
 
+                # Determine content type from Flask response
+                flask_content_type = response.headers.get('Content-Type', 'application/json')
+                
+                # Override content type based on path for API endpoints
+                if path in ['/health', '/predict', '/batch-predict', '/model-info', '/stats', '/api-info', '/swagger-spec']:
+                    flask_content_type = 'application/json'
+                elif path in ['/', '/swagger-ui']:
+                    flask_content_type = 'text/html'
+
                 return {
                     "statusCode": response.status_code,
                     "headers": {
-                        "Content-Type": "application/json",
+                        "Content-Type": flask_content_type,
                         "Access-Control-Allow-Origin": "*",
                         "Access-Control-Allow-Methods": "GET,POST,PUT,DELETE,OPTIONS",
                         "Access-Control-Allow-Headers": "Content-Type,Authorization,Accept",
