@@ -90,7 +90,7 @@ swagger_config = {
                     },
                     "model_loaded": {
                         "type": "boolean",
-                        "example": true  # Changed from True to true
+                        "example": True  # Changed back to Python True
                     },
                     "model_path": {
                         "type": "string",
@@ -134,7 +134,7 @@ swagger_config = {
                 "description": "Analyzes text and returns sentiment prediction with confidence scores",
                 "operationId": "predictSentiment",
                 "requestBody": {
-                    "required": true,  # Changed from True to true
+                    "required": True,  # Changed back to Python True
                     "content": {
                         "application/json": {
                             "schema": {
@@ -184,7 +184,7 @@ swagger_config = {
                 "description": "Analyzes multiple texts in a single request for efficient processing",
                 "operationId": "batchPredict",
                 "requestBody": {
-                    "required": true,  # Changed from True to true
+                    "required": True,  # Changed back to Python True
                     "content": {
                         "application/json": {
                             "schema": {
